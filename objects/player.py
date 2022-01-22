@@ -15,6 +15,7 @@ class Player(object):
     direction. On initialization, it will connect itself to a game and its
     other players by placing itself behind the current player.
     """
+    
 
     def __init__(self, game, user):
         self.cards = list()
@@ -23,6 +24,7 @@ class Player(object):
         self.logger = logging.getLogger(__name__)
         self.countmode = None
         self.combos = {'1':[], '2':[], '3':[], '4':[], '5':{'0':[], '1':[], '2':[], '3':[], '4':[]}}
+        self.to_remove = []
 
         # Check if this player is the first player in this game.
         if game.current_player:
@@ -191,9 +193,9 @@ class Player(object):
                 print("not 5")
                 for combo in self.combos[str(mode)]:
                     if last in combo and len(combo) == self.countmode+1:
-                        print(combo)
-                        combo.remove(last)
-                        combos[str(mode)].append(combo)
+                        to_remove_list = {'MR':mode, 'Index':self.combos[mode].index(combo), 'Card': last}
+                        combos[str(mode)].append([card for card in combo if card != last])
+                        self.to_remove.append(to_remove_list)
                     
                 for combo in combos[str(mode)]:
                     for card in combo:
@@ -204,18 +206,22 @@ class Player(object):
                 print("mode 5")
                 for rank in self.combos['5'].keys():
                     for combo in self.combos['5'][rank]:
-                        if last in combo:
-                            print("Possible combos from dropped card: " + str(combo)) 
                         if last in combo and len(combo) == self.countmode+1:
+                            print("Possible combos from dropped card: " + str(combo)) 
                             if self.game.last_five_rank == None or int(self.game.last_five_rank) < int(rank):  
-                                combo.remove(last)
-                                combos[str(mode)].append(combo)
+                                print("No rank or less rank!")
+                                to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
+                                combos[str(mode)].append([card for card in combo if card != last])
+                                self.to_remove.append(to_remove_list)
                             elif rank == self.game.last_five_rank:
+                                print("Equal Rank")
                                 high = self.game.last_high
                                 for card in combo:
                                     if high < card:
-                                        combo.remove(last)
-                                        combos[str(mode)].append(combo)
+                                        to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
+                                        combos[str(mode)].append([card for card in combo if card != last])
+                                        self.to_remove.append(to_remove_list)
+                                        break
                 for combo in combos[str(mode)]:
                     for card in combo:
                         if card not in playable:
@@ -236,24 +242,25 @@ class Player(object):
                     if card not in playable:
                         playable.append(card)
         else:
-            print("Previous combo's rank was " + self.game.last_five_rank)
             for rank in self.combos[str(mode)].keys():
                 if self.game.last_five_rank != None:
+                    print("Previous combo's rank was " + self.game.last_five_rank)
                     if int(rank) == int(self.game.last_five_rank):
                         for combis in self.combos['5'][rank]:
                                 for card in combis:
                                     if self.game.last_high < card:
                                         combos[str(mode)].append(combis)
                                         continue
-                    elif int(rank) > int(self.game.last_five_rank): #CHECK CURRENT COMBO'S HIGHEST CARD INSTEAD OF LAST CARD LANG
+                    elif int(rank) > int(self.game.last_five_rank): 
                         for combo in self.combos['5'][rank]:
                                 combos[str(mode)].append(combo)
                 else:
+                    print("You just started a new mode!")
                     for combo in self.combos['5'][rank]:
-                                for card in combo:
-                                    if last < card:
-                                        combos[str(mode)].append(combo)
-                                        continue
+                        for card in combo:
+                            if last < card:
+                                combos[str(mode)].append(combo)
+                                break
             for combo in combos[str(mode)]:
                 for card in combo:
                     if card not in playable:

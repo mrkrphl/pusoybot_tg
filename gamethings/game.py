@@ -59,9 +59,9 @@ class Game(object):
         
     def check_last_high(self, cur_com):
         high = cur_com[0]
-        for card in  cur_com:
+        for card in cur_com:
             if high < card:
-                high == card
+                high = card
         return high
 
     def turn(self):
@@ -117,6 +117,17 @@ class Game(object):
         print("Last Card: " + str(self.last_card))
 
         player.countmode -= 1
+        if len(player.to_remove) > 0:
+            print(len(player.to_remove))
+            if self.mode == '5':
+                for removing in player.to_remove:
+                    if(removing['Card'] in player.combos['5'][removing['MR']][removing['Index']]):
+                        player.combos['5'][removing['MR']][removing['Index']].remove(removing['Card'])     
+            else:
+                for removing in player.to_remove:
+                    if(removing['Card'] in player.combos[removing['MR']][removing['Index']]):
+                        player.combos[removing['MR']][removing['Index']].remove(removing['Card'])
+            player.to_remove = []
         print("Moves Left: " + str(player.countmode))
         if(player.countmode == 0):
             if self.mode == '5':
