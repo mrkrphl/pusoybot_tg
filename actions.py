@@ -34,7 +34,16 @@ def do_pass(bot, player, job_queue=None):
     )
     logger.info("{player} was skipped! "
                 .format(player=display_name(player.user)))
+    if game.mode != None:
+        if len(game.current_combo) > 0:
+            send_async(bot, chat.id,
+               text=("Can't pass when a combo has started!")
+            )
+            return
+        game.mode = None
     game.turn()
+    if game.current_player.user == game.last_card_owner.user:
+        game.mode = None
 
 def do_play_card(bot, player, result_id):
     """Plays the selected card and sends an update to the group if needed"""
@@ -44,16 +53,13 @@ def do_play_card(bot, player, result_id):
     chat = game.chat
     user = player.user
 
-    us = UserSetting.get(id=user.id)
+    """     us = UserSetting.get(id=user.id)
     if not us:
         us = UserSetting(id=user.id)
 
     if us.stats:
-        us.cards_played += 1
-
-    if game.choosing_color:
-        send_async(bot, chat.id, text=("Please choose a color"))
-
+        us.cards_played += 1 """
+        
     if len(player.cards) == 1:
         send_async(bot, chat.id, text="UNO!")
 
@@ -62,11 +68,11 @@ def do_play_card(bot, player, result_id):
                    text=("{name} won!")
                    .format(name=user.first_name))
 
-        if us.stats:
+        """         if us.stats:
             us.games_played += 1
 
             if game.players_won == 0:
-                us.first_places += 1
+                us.first_places += 1 """
 
         game.players_won += 1
 

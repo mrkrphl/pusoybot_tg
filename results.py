@@ -30,22 +30,13 @@ def add_no_game(results):
         )
     )
 
-def add_choose_mode(results, player):
+def add_choose_mode(results, player, playable):
     """Add option which combo cards to drop"""
-    if(len(player.playable_cards()) > 0):
-        results.append(Sticker("singles", sticker_file_id='C:\\Users\\markr\\Desktop\\pony\\images\\webp\\singles.webp'))
-        if player.combos_playable():
-            for combo in player.combos_playable():
-                results.append(Sticker(str(combo), sticker_file_id='C:\\Users\\markr\\Desktop\\pony\\images\\webp\\' + str(combo)))
-    else:
-        results.append(
-            Sticker(
-                "pass", sticker_file_id=c.STICKERS['option_pass'],
-                input_message_content=InputTextMessageContent(
-                    ('Pass')
-                )
-            )
-        )
+    if(len(playable)>0):
+        for combos  in playable[1].keys():
+            if len(playable[1][combos]) > 0:
+                if combos == '4': continue
+                results.append(Sticker('mode_' + combos, sticker_file_id=c.STICKERS[combos]))
         
 def add_not_started(results):
     """Add text result if the game has not yet started"""
@@ -61,7 +52,6 @@ def add_not_started(results):
 
 def add_gameinfo(game, results):
     """Add option to show game info"""
-
     results.append(
         Sticker(
             "gameinfo",
@@ -85,12 +75,13 @@ def add_pass(results, game):
 def add_card(game, card, results, can_play):
     """Add an option that represents a card"""
     if can_play:
+        print(str(card))
         results.append(
-            Sticker(str(card), sticker_file_id='C:\\Users\\markr\\Desktop\\pony\\images\\webp\\'+str(card))
+            Sticker(str(card), sticker_file_id=c.STICKERS[str(card)])
         )
     else:
         results.append(
-            Sticker(str(uuid4()), sticker_file_id='C:\\Users\\markr\\Desktop\\pony\\images\\webp-lowsat\\'+str(card),
+            Sticker(str(uuid4()), sticker_file_id=c.STICKERS_GRAY[str(card)],
                     input_message_content=game_info(game))
         )
 

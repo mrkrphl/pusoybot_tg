@@ -1,3 +1,4 @@
+from cmath import e
 import logging
 from datetime import datetime
 
@@ -30,45 +31,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def notify_me(bot, update):
-    """Handler for /notify_me command, pm people for next game"""
-    chat_id = update.message.chat_id
-    if update.message.chat.type == 'private':
-        send_async(bot,
-                   chat_id,
-                   text=("Send this command in a group to be notified "
-                          "when a new game is started there."))
-    else:
-        try:
-            gm.remind_dict[chat_id].add(update.message.from_user.id)
-        except KeyError:
-            gm.remind_dict[chat_id] = {update.message.from_user.id}
-
 def new_game(bot, update):
     """Handler for the /new command"""
     chat_id = update.message.chat_id
-
     if update.message.chat.type == 'private':
         help_handler(bot, update)
-
     else:
-
-        if update.message.chat_id in gm.remind_dict:
-            for user in gm.remind_dict[update.message.chat_id]:
-                send_async(bot,
-                           user,
-                           text=("A new game has been started in {title}").format(
-                                title=update.message.chat.title))
-
-            del gm.remind_dict[update.message.chat_id]
-
         game = gm.new_game(update.message.chat)
-        game.starter = update.message.from_user
         game.owner.append(update.message.from_user.id)
         send_async(bot, chat_id,
                    text=("Created a new game! Join the game with /join "
                           "and start the game with /start"))
-
 
 def kill_game(bot, update):
     """Handler for the /kill command"""
@@ -108,35 +81,23 @@ def kill_game(bot, update):
 def join_game(bot, update):
     """Handler for the /join command"""
     chat = update.message.chat
-
     if update.message.chat.type == 'private':
         help_handler(bot, update)
         return
-
     try:
         gm.join_game(update.message.from_user, chat)
-
     except LobbyClosedError:
-            send_async(bot, chat.id, text=("The lobby is closed"))
-
+        send_async(bot, chat.id, text=("The lobby is closed"))
     except NoGameInChatError:
         send_async(bot, chat.id,
                    text=("No game is running at the moment. "
                           "Create a new game with /new"),
                    reply_to_message_id=update.message.message_id)
-
     except AlreadyJoinedError:
         send_async(bot, chat.id,
                    text=("You already joined the game. Start the game "
                           "with /start"),
                    reply_to_message_id=update.message.message_id)
-
-    except DeckEmptyError:
-        send_async(bot, chat.id,
-                   text=("There are not enough cards left in the deck for "
-                          "new players to join."),
-                   reply_to_message_id=update.message.message_id)
-
     else:
         send_async(bot, chat.id,
                    text=("Joined the game"),
@@ -321,6 +282,7 @@ def start_game(bot, update, args, job_queue):
         chat = update.message.chat
         try:
             game = gm.chatid_games[chat.id][-1]
+            
         except (KeyError, IndexError):
             send_async(bot, chat.id,
                        text=("There is no game running in this chat. Create "
@@ -333,11 +295,11 @@ def start_game(bot, update, args, job_queue):
                        text=("At least {minplayers} players must /join the game "
                               "before you can start it").format(minplayers=MIN_PLAYERS))
         else:
-            # Starting a game
             game.start()
             for player in game.players:
                 player.draw_hand()
-                if('♣3' in player.cards):
+                player.look_for_combos()
+                if('c_3' in player.cards):
                     game.current_player = player
                     game.starter = game.current_player
             choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
@@ -452,14 +414,12 @@ def pass_player(bot, update):
     else:
         do_pass(bot, player)
 
-def reply_to_query(bot, update):
+def reply_to_query(bot, update): #mag popop-up to choose sticker
     """
     Handler for inline queries.
     Builds the result list for inline queries and answers to the client.
     """
-    results = list()
-    switch = None
-
+    results = list()   
     try:
         user = update.inline_query.from_user
         user_id = user.id
@@ -469,7 +429,6 @@ def reply_to_query(bot, update):
     except KeyError:
         add_no_game(results)
     else:
-
         # The game has not started.
         # The creator may change the game mode, other users just get a "game has not started" message.
         if not game.started:
@@ -478,38 +437,36 @@ def reply_to_query(bot, update):
             else:
                 add_not_started(results)
 
-
         elif user_id == game.current_player.user.id:
+            playable = player.playable_cards()
             if(not game.mode):
-                add_choose_mode(results, game.current_player)
-            else:
+                add_choose_mode(results, game.current_player, playable)
                 add_pass(results, game)
-                playable = player.playable_cards()
-                added_ids = list()  # Duplicates are not allowed
-                for card in sorted(player.cards):
-                    add_card(game, card, results,
-                            can_play=(card in playable and
-                                            str(card) not in added_ids))
-                    added_ids.append(str(card))
-
+            elif player.countmode == int(game.mode):
+                add_pass(results, game)
+            added_ids = list()  # Duplicates are not allowed
+            for card in sorted(player.cards):
+                add_card(game, card, results,
+                        can_play=(card in playable[0] and
+                                        str(card) not in added_ids))
+                added_ids.append(str(card))
             add_gameinfo(game, results)
 
         elif user_id != game.current_player.user.id or not game.started:
             for card in sorted(player.cards):
                 add_card(game, card, results, can_play=False)
-
         else:
             add_gameinfo(game, results)
 
         for result in results:
-            print(result)
             result.id += ':%d' % player.anti_cheat
 
-        if players and game and len(players) > 1:
-            switch =('Current game: {game}').format(game=game.chat.title)
-
-    answer_async(bot, update.inline_query.id, results, cache_time=0,
-                 switch_pm_text=switch, switch_pm_parameter='select')
+        for i in range(1, len(results)):
+            for j in range(i+1, len(results)):
+                if results[i] == results[j]:
+                    print("DUPLICATE FOUND!")
+    
+    answer_async(bot, update.inline_query.id, results, cache_time=0)
 
 
 def process_result(bot, update, job_queue):
@@ -539,7 +496,9 @@ def process_result(bot, update, job_queue):
         mode = result_id[5:]
         game.set_mode(mode)
         logger.info("Gamemode changed to {mode}".format(mode = mode))
-        send_async(bot, chat.id, text=("Gamemode changed to {mode}".format(mode = mode)))
+        choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+        send_async(bot, chat.id, text=("Gamemode changed to {mode}! You can now drop {mode} cards as a combo consecutively!".format(mode = mode)),
+                        reply_markup = InlineKeyboardMarkup(choice))
         return
     elif len(result_id) == 36:  # UUID result
         return
@@ -551,15 +510,43 @@ def process_result(bot, update, job_queue):
     elif result_id == 'draw':
         do_draw(bot, player)
     elif result_id == 'pass':
+        if game.last_card_owner == None:
+            game.mode = None
+            choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+            send_async(bot, chat.id, text = "Can't pass, you have the starting card!", reply_markup = InlineKeyboardMarkup(choice))
+            return
+        if game.mode != None:
+            if len(game.current_combo) > 0:
+                send_async(bot, chat.id,
+                text=("Can't pass when a combo has started!")
+                )
+                return
+            game.mode = None
         game.turn()
-    elif result_id in c.COLORS:
-        game.choose_color(result_id)
+        if game.current_player.user == game.last_card_owner.user:
+            game.mode = None
+            game.last_card = c.Card('c', '3')
+            game.last_high = None
+            game.last_five_rank = None
     else:
+        if(game.mode == None):
+            choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+            send_async(bot, chat.id, text=("Game mode not set! Please choose how many cards you are going to play."),
+                            reply_markup = InlineKeyboardMarkup(choice))
+            return
+        if(game.last_card.value == '0' and result_id != 'c_3'):
+            choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+            send_async(bot, chat.id, text=("3 of Clubs must be dropped first to start the game!"),
+                            reply_markup = InlineKeyboardMarkup(choice))
+            return
         do_play_card(bot, player, result_id)
 
     if game_is_running(game):
+        combo = '\n'
+        if len(game.current_combo) > 0:    
+            combo += "Combo so far:" + str(game.current_combo) 
         nextplayer_message = (
-            ("Next player: {name}")
+            ("Next player: {name}" + combo)
             .format(name=display_name(game.current_player.user)))
         choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
         send_async(bot, chat.id,
@@ -580,7 +567,6 @@ dispatcher.add_handler(CommandHandler('kick', kick_player))
 dispatcher.add_handler(CommandHandler('open', open_game))
 dispatcher.add_handler(CommandHandler('close', close_game))
 dispatcher.add_handler(CommandHandler('skip', pass_player))
-dispatcher.add_handler(CommandHandler('notify_me', notify_me))
 simple_commands.register()
 settings.register()
 dispatcher.add_handler(MessageHandler(Filters.status_update, status_update))

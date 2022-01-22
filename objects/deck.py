@@ -28,13 +28,6 @@ class Deck(object):
             return card
         except IndexError:
             self.logger.debug("No more cards from deck")
-            """    if len(self.graveyard):
-                while len(self.graveyard):
-                    self.cards.append(self.graveyard.pop())
-                self.shuffle()
-                return self.draw()
-            else:
-                raise DeckEmptyError() """
 
     def dismiss(self, card):
         """Returns a card to the deck"""
@@ -42,7 +35,7 @@ class Deck(object):
 
     def _fill__(self):
         self.cards.clear()
-        for suit in c.SUITS:
-            for value in c.VALUES:
+        for suit in c.SUITS_VALUES.keys():
+            for value in c.VALUE_VALUES.keys():
                 self.cards.append(Card(suit, value))
         self.shuffle()

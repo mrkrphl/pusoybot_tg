@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime
+from statistics import mode
 
 from errors import DeckEmptyError
 from gamethings.game import SINGLE
 from objects.card import Card
-from objects.combos import check_doubles, check_fives, check_quad, check_trio
+from objects.combos import check_combo
 
 
 class Player(object):
@@ -20,6 +21,8 @@ class Player(object):
         self.game = game
         self.user = user
         self.logger = logging.getLogger(__name__)
+        self.countmode = None
+        self.combos = {'1':[], '2':[], '3':[], '4':[], '5':{'0':[], '1':[], '2':[], '3':[], '4':[]}}
 
         # Check if this player is the first player in this game.
         if game.current_player:
@@ -39,13 +42,11 @@ class Player(object):
         try:
             for _ in range(int(52/len(self.game.players))):
                 drew = self.game.deck.draw()
-                
                 self.cards.append(drew)
         except DeckEmptyError:
             self.logger.debug("NOT ENOUGH CARDS FROM DECK!")
-
             raise
-
+    
     def leave(self):
         """Removes player from the game and closes the gap in the list"""
         if self.next is self:
@@ -86,52 +87,175 @@ class Player(object):
     def play(self, card): #single card
         """Plays a card and removes it from hand"""
         self.cards.remove(card)
-        self.game.play_card(card)
+        self.game.play_card(card, self)
+
+    def first_player(self):
+        if self.game.last_card.value != '0':
+            return False
+        return True
+
+    def sort_cards(self):
+        self.cards = sorted(self.cards)
+
+    def look_for_combos(self):
+        for card in self.cards:
+            combos = check_combo(card=card, cards=self.cards)
+            for combo in combos.keys():
+                if(combo != '5'):
+                    self.combos[combo].append(combos[combo])
+                else:
+                    for k in combos[combo].keys():
+                        for deal in combos[combo][k]:
+                            self.combos[combo][k].append(deal)
+        if(len(self.combos['2']) > 0 and len(self.combos['3']) > 0):
+            print("LOOKING FOR FULL HOUSE")
+            for pair in self.combos['2']:    
+                for trio in self.combos['3']:
+                    if pair[0] not in trio:
+                        self.combos['5']['2'].append(pair + trio)
+        #four-of-a-kind plus singit
+        if(len(self.combos['4']) > 0):
+            print('LOOKING FOR QUAD')
+            for quads in self.combos['4']:
+                if len(quads) > 0:
+                    for singles in self.combos['1']:
+                            if singles[0] not in quads:
+                                self.combos['5']['3'].append(quads + singles)
+        
 
     def playable_cards(self):
         """Returns a list of the cards this player can play right now"""
-
         playable = list()
-        last = self.game.last_card
+        combos = {'1':[], '2':[], '3':[], '5':[]}
+        if self.game.mode == None:    
+            if self.first_player():
+                print("FIRST MOVE")
+                lowest = Card('c','3')
+                if(lowest in self.cards):
+                    playable.append(lowest)
+                    for num in self.combos.keys():
+                        if num == '4':
+                            continue
+                        if num != '5':
+                            for comboes in self.combos[num]:
+                                if lowest in comboes:
+                                    combos[num].append(comboes)
+                                    for card in comboes:
+                                        if card not in playable:
+                                            playable.append(card)
+                        else:
+                            for rank in self.combos[num]:
+                                for comboes in self.combos[num][rank]:
+                                    if lowest in comboes:
+                                        combos[num].append(comboes)
+                                        for card in comboes:
+                                            if card not in playable:
+                                                playable.append(card)
+                    return playable, combos
+        else:
+            if self.first_player():
+                print("FIRST MOVE")
+                lowest = Card('c','3')
+                if(lowest in self.cards):
+                    playable.append(lowest)
+                    for num in self.combos.keys():
+                        if self.game.mode != num:
+                            continue
+                        if num != '5':
+                            for comboes in self.combos[num]:
+                                if lowest in comboes:
+                                    combos[num].append(comboes)
+                                    for card in comboes:
+                                        if card not in playable:
+                                            playable.append(card)
+                        else:
+                            for rank in self.combos[num]:
+                                for comboes in self.combos[num][rank]:
+                                    if lowest in comboes:
+                                        combos[num].append(comboes)
+                                        for card in comboes:
+                                            if card not in playable:
+                                                playable.append(card)
+                    return playable, combos
 
-        self.logger.debug("Last card was " + str(last))
-
-        cards = self.cards
-
-        for card in cards:
-            print(card)
-            print(last)
-            if self._card_playable(card):
-                self.logger.debug("Matching!")
+        if not self.game.mode:
+            for card in self.cards:
                 playable.append(card)
+            return playable, self.combos
 
-        return playable
-
-    def combos_playable(self):
-        combos = []
-        #doubles
-        if check_doubles(self):
-            combos.append('pair')
-        if check_trio(self):
-            combos.append('trio')
-        if check_quad(self):
-            combos.append('quad')
-        if check_fives(self):
-            combos.append('fives')
-        return combos
-        
-
-    def _card_playable(self, card):
-
-        is_playable = True
         last = self.game.last_card
-        self.logger.debug("Checking card " + str(card))
-        if(not last):
-            last = Card('c', '0')
-        if (card.value < last.value):
-            self.logger.debug("Card is lower in value") 
-            is_playable = False
-        elif(card.value == last.value):
-            if(not card.compare_suit(card, last)):
-                is_playable = False
-        return is_playable
+        mode = self.game.mode
+        if(self.countmode != 0 and self.countmode < int(self.game.mode)): #magbababa pa
+            print("COMPLETING COMBO")
+            if mode != '5':
+                print("not 5")
+                for combo in self.combos[str(mode)]:
+                    if last in combo and len(combo) == self.countmode+1:
+                        print(combo)
+                        combo.remove(last)
+                        combos[str(mode)].append(combo)
+                    
+                for combo in combos[str(mode)]:
+                    for card in combo:
+                        if card not in playable:
+                            playable.append(card)
+                return playable, combos
+            else:
+                print("mode 5")
+                for rank in self.combos['5'].keys():
+                    for combo in self.combos['5'][rank]:
+                        if last in combo:
+                            print("Possible combos from dropped card: " + str(combo)) 
+                        if last in combo and len(combo) == self.countmode+1:
+                            if self.game.last_five_rank == None or int(self.game.last_five_rank) < int(rank):  
+                                combo.remove(last)
+                                combos[str(mode)].append(combo)
+                            elif rank == self.game.last_five_rank:
+                                high = self.game.last_high
+                                for card in combo:
+                                    if high < card:
+                                        combo.remove(last)
+                                        combos[str(mode)].append(combo)
+                for combo in combos[str(mode)]:
+                    for card in combo:
+                        if card not in playable:
+                            playable.append(card)
+                return playable, combos
+
+
+        #eto ibang player na sasagot
+        print("NEXT PLAYER START A COMBO")
+        if mode != '5':
+            for combo in self.combos[str(mode)]: 
+                for card in combo:
+                    if last < card:
+                        combos[str(mode)].append(combo)
+                        continue
+            for combo in combos[str(mode)]:
+                for card in combo:
+                    if card not in playable:
+                        playable.append(card)
+        else:
+            print("Previous combo's rank was " + self.game.last_five_rank)
+            for rank in self.combos[str(mode)].keys():
+                if self.game.last_five_rank != None:
+                    if int(rank) == int(self.game.last_five_rank):
+                        for combis in self.combos['5'][rank]:
+                                for card in combis:
+                                    if self.game.last_high < card:
+                                        combos[str(mode)].append(combis)
+                                        continue
+                    elif int(rank) > int(self.game.last_five_rank): #CHECK CURRENT COMBO'S HIGHEST CARD INSTEAD OF LAST CARD LANG
+                        for combo in self.combos['5'][rank]:
+                                combos[str(mode)].append(combo)
+                else:
+                    for combo in self.combos['5'][rank]:
+                                for card in combo:
+                                    if last < card:
+                                        combos[str(mode)].append(combo)
+                                        continue
+            for combo in combos[str(mode)]:
+                for card in combo:
+                    if card not in playable:
+                        playable.append(card)
+        return playable, combos

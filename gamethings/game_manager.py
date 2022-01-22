@@ -12,7 +12,6 @@ class GameManager(object):
         self.chatid_games = dict()
         self.userid_players = dict()
         self.userid_current = dict()
-        self.remind_dict = dict()
         self.logger = logging.getLogger(__name__)
 
     def new_game(self, chat):
@@ -20,14 +19,11 @@ class GameManager(object):
         Create a new game in this chat
         """
         chat_id = chat.id
-
         self.logger.debug("Creating new game in chat " + str(chat_id))
         game = Game(chat)
-
         if chat_id not in self.chatid_games:
             self.chatid_games[chat_id] = list()
-
-        # remove old games
+        # remove old games if there are no players 
         for g in list(self.chatid_games[chat_id]):
             if not g.players:
                 self.chatid_games[chat_id].remove(g)
@@ -38,17 +34,14 @@ class GameManager(object):
     def join_game(self, user, chat):
         """ Create a player from the Telegram user and add it to the game """
         self.logger.info("Joining game with chat id " + str(chat.id))
-
         try:
             game = self.chatid_games[chat.id][-1]
         except (KeyError, IndexError):
             raise NoGameInChatError()
-
         if not game.open:
             raise LobbyClosedError()
-
         if user.id not in self.userid_players:
-            self.userid_players[user.id] = list()
+            self.userid_players[user.id] = list() #empy list user id players
 
         players = self.userid_players[user.id]
 
@@ -57,22 +50,19 @@ class GameManager(object):
         for player in players:
             if player in game.players:
                 raise AlreadyJoinedError()
-        try:
+        try: #checks if user can leave a game meaning they joined na sa ibang game
             self.leave_game(user, chat)
         except NoGameInChatError:
-            pass
+            pass #goods join ka dito
         except NotEnoughPlayersError:
             self.end_game(chat, user)
 
-            if user.id not in self.userid_players:
-                self.userid_players[user.id] = list()
-
-            players = self.userid_players[user.id]
-
         player = Player(game, user)
 
-        players.append(player)
-        self.userid_current[user.id] = player
+        players.append(player) #if userid ay may iba pang games na player siya dito nililist
+        self.userid_current[user.id] = player #current game ng userid na player siya
+        print(self.userid_players)
+        print(self.userid_current)
 
     def leave_game(self, user, chat):
         """ Remove a player from its current game """
@@ -80,6 +70,7 @@ class GameManager(object):
         player = self.player_for_user_in_chat(user, chat)
         players = self.userid_players.get(user.id, list())
 
+        #if not a player of current game
         if not player:
             games = self.chatid_games[chat.id]
             for g in games:
