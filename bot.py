@@ -11,7 +11,7 @@ from telegram.ext.dispatcher import run_async
 from objects import card as c #okay
 import settings #okay
 import simple_commands #okay
-from actions import do_pass, do_play_card, do_draw
+from actions import do_play_card
 from config import MIN_PLAYERS
 from errors import (NoGameInChatError, LobbyClosedError, AlreadyJoinedError,
                     NotEnoughPlayersError, DeckEmptyError)
@@ -31,9 +31,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def rules(bot, update):
+    """Handler for the /rules command"""
+    help_text = ("Rules:\n\n"
+      "1. The game is limited to only up to 4 players and a minimum of 2 players. (Sad naman kung mag-isa ka)\n"
+      "2. The First Card to be dropped should be the 3 of Clubs! Whoever has this card will be the first.\n"
+      "3. The first player will choose what game mode to play on.\n Game modes are the number of cards you can drop as a combo."
+      "     (Players can only drop one card per message sent. Thus, a game mode of 5 requires you to send a sticker 5 times consecutively.\n"
+      "4. When a player starts a game mode, all other players are required to drop the same amount of cards."
+      "     If a player does not have enough cards to form a combination, they ought to pass.\n"
+      "5. Combinations that the next player will play should be higher than the previous."
+      "     For Singles, Pairs, and Trios: \n"
+      "             A combo with a higher value is playable.\n"
+      "              (Singles, Pairs and Trios are made up of cards of the same value)\n"
+      "     Five-card Combinations have the following ranks (1 being the lowest):\n"
+      "             1: Straight - cards of consecutive values.\n"
+      "             2: Flush - cards of the same suit.\n"
+      "             3: Full House - a pair and a trio together.\n"
+      "             4: Four-of-a-kind - four cards of the same value and one filler card.\n"
+      "             5: Straight Flush - cards of consecutive values and of the same suit.\n"
+      "6. The highest card value is 2. The highes suit is Diamonds.\n"
+      "             To follow a five-card combo, it shoud be of the same rank or higher.\n"
+      "                 A combo of the same rank must have a higher card than all the cards from the previous combo.\n"
+      "7. Whichver player empties their hand first wins the game!\n\n")
+    
+    send_async(bot, update.message.chat_id, text=help_text,
+               parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+
+
 def new_game(bot, update):
     """Handler for the /new command"""
     chat_id = update.message.chat_id
+    if chat_id in gm.chatid_games.keys():
+        if (len(gm.chatid_games[chat_id]) > 0):
+            send_async(bot, chat_id,
+                    text=("There is already an exisiting game!"))
+            return
     if update.message.chat.type == 'private':
         help_handler(bot, update)
     else:
@@ -361,58 +394,6 @@ def close_game(bot, update):
                    .format(name=game.starter.first_name),
                    reply_to_message_id=update.message.message_id)
         return
-def open_game(bot, update):
-    """Handler for the /open command"""
-    chat = update.message.chat
-    user = update.message.from_user
-    games = gm.chatid_games.get(chat.id)
-
-    if not games:
-        send_async(bot, chat.id,
-                   text=("There is no running game in this chat."))
-        return
-
-    game = games[-1]
-
-    if user.id in game.owner:
-        game.open = True
-        send_async(bot, chat.id, text=("Opened the lobby. "
-                                        "New players may /join the game."))
-        return
-    else:
-        send_async(bot, chat.id,
-                   text=("Only the game creator ({name}) and admin can do that.")
-                   .format(name=game.starter.first_name),
-                   reply_to_message_id=update.message.message_id)
-        return
-def pass_player(bot, update):
-    """Handler for the /skip command"""
-    chat = update.message.chat
-    user = update.message.from_user
-
-    player = gm.player_for_user_in_chat(user, chat)
-    if not player:
-        send_async(bot, chat.id,
-                   text=("You are not playing in a game in this chat."))
-        return
-
-    game = player.game
-    skipped_player = game.current_player
-
-    started = skipped_player.turn_started
-    now = datetime.now()
-    delta = (now - started).seconds
-
-    if delta < skipped_player.waiting_time and player != skipped_player:
-        n = skipped_player.waiting_time - delta
-        send_async(bot, chat.id,
-                   text=("Please wait {time} second",
-                          "Please wait {time} seconds",
-                          n)
-                   .format(time=n),
-                   reply_to_message_id=update.message.message_id)
-    else:
-        do_pass(bot, player)
 
 def reply_to_query(bot, update): #mag popop-up to choose sticker
     """
@@ -485,9 +466,7 @@ def process_result(bot, update, job_queue):
 
     logger.debug("Selected result: " + result_id)
 
-    result_id, anti_cheat = result_id.split(':')
-    last_anti_cheat = player.anti_cheat
-    player.anti_cheat += 1
+    result_id = result_id.split(':')[0]
 
     if result_id in ('hand', 'gameinfo', 'nogame'):
         return
@@ -502,13 +481,6 @@ def process_result(bot, update, job_queue):
         return
     elif len(result_id) == 36:  # UUID result
         return
-    elif int(anti_cheat) != last_anti_cheat:
-        send_async(bot, chat.id,
-                   text=("Cheat attempt by {name}")
-                   .format(name=display_name(player.user)))
-        return
-    elif result_id == 'draw':
-        do_draw(bot, player)
     elif result_id == 'pass':
         if game.last_card_owner == None:
             game.mode = None
@@ -540,13 +512,29 @@ def process_result(bot, update, job_queue):
                             reply_markup = InlineKeyboardMarkup(choice))
             return
         do_play_card(bot, player, result_id)
-
     if game_is_running(game):
         combo = '\n'
+        lc = ''
+        gr = ''
         if len(game.current_combo) > 0:    
-            combo += "Combo so far:" + str(game.current_combo) 
+            combo += "Combo so far:" + str(game.current_combo) + '\n'
+        if type(game.last_high) is c.Card:
+            lc = "Last Highest Card: " + str(game.last_card) + "\n"
+        if game.mode == '5':
+            if(game.last_five_rank == '0'): 
+                gr = "Last Rank of Five Card: Straight" 
+            elif(game.last_five_rank == '1'): 
+                gr = "Last Rank of Five Card: Flush"
+            elif(game.last_five_rank == '2'): 
+                gr = "Last Rank of Five Card: Full House"
+            elif(game.last_five_rank == '3'): 
+                gr = "Last Rank of Five Card: Four-of-a-Kind"
+            elif(game.last_five_rank == '4'): 
+                gr = "Last Rank of Five Card: Straight Flush"
+            gr = gr + "\n"
+                
         nextplayer_message = (
-            ("Next player: {name}" + combo)
+            ("Next player: {name}" + combo + lc + gr)
             .format(name=display_name(game.current_player.user)))
         choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
         send_async(bot, chat.id,
@@ -563,10 +551,8 @@ dispatcher.add_handler(CommandHandler('new', new_game))
 dispatcher.add_handler(CommandHandler('kill', kill_game))
 dispatcher.add_handler(CommandHandler('join', join_game))
 dispatcher.add_handler(CommandHandler('leave', leave_game))
-dispatcher.add_handler(CommandHandler('kick', kick_player))
-dispatcher.add_handler(CommandHandler('open', open_game))
+dispatcher.add_handler(CommandHandler('rules', rules))
 dispatcher.add_handler(CommandHandler('close', close_game))
-dispatcher.add_handler(CommandHandler('skip', pass_player))
 simple_commands.register()
 settings.register()
 dispatcher.add_handler(MessageHandler(Filters.status_update, status_update))

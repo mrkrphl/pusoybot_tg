@@ -33,11 +33,15 @@ def add_no_game(results):
 def add_choose_mode(results, player, playable):
     """Add option which combo cards to drop"""
     if(len(playable)>0):
-        for combos  in playable[1].keys():
-            if(combos== '5'):
-                for rank in playable[1][combos]:
-                    if len(playable[1][combos][rank]) < 0:
-                        break
+        for combos in playable[1].keys():
+            if combos == '5':
+                if(type(playable[1][combos]) is not list):
+                    empty = True
+                    for rank in playable[1][combos].keys():
+                        if len(playable[1][combos][rank]) > 0:
+                            empty = False
+                    if empty:
+                        continue
             if len(playable[1][combos]) > 0:
                 if combos == '4': continue
                 results.append(Sticker('mode_' + combos, sticker_file_id=c.STICKERS[combos]))
