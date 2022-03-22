@@ -45,4 +45,4 @@ def check_combo(card, cards): #function to get all possible combos listed in a d
                                     flush.append(sorted_cards[k])
                                     flush.append(sorted_cards[l])
                                     combos['5']['1'].append(flush)
-    return combos
+    return combos #### KULANG COMBOSSS!!! 

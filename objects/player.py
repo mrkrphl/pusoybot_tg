@@ -189,6 +189,7 @@ class Player(object):
         mode = self.game.mode
         if(self.countmode != 0 and self.countmode < int(self.game.mode)): #magbababa pa
             print("COMPLETING COMBO")
+            last = self.game.last_card
             if mode != '5':
                 print("not 5")
                 for combo in self.combos[str(mode)]:
@@ -217,11 +218,14 @@ class Player(object):
                                 print("Equal Rank")
                                 high = self.game.last_high
                                 for card in combo:
-                                    if high < card:
-                                        to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
-                                        combos[str(mode)].append([card for card in combo if card != last])
-                                        self.to_remove.append(to_remove_list)
-                                        break
+                                    if rank != '2' or rank != '3':
+                                        if high < card:
+                                            to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
+                                            combos[str(mode)].append([card for card in combo if card != last])
+                                            self.to_remove.append(to_remove_list)
+                                            break
+                                    else:
+                                        
                 for combo in combos[str(mode)]:
                     for card in combo:
                         if card not in playable:
@@ -247,10 +251,9 @@ class Player(object):
                     print("Previous combo's rank was " + self.game.last_five_rank)
                     if int(rank) == int(self.game.last_five_rank):
                         for combis in self.combos['5'][rank]:
-                                for card in combis:
-                                    if self.game.last_high < card:
-                                        combos[str(mode)].append(combis)
-                                        continue
+                                if self.game.last_high < self.game.check_last_high(combis, rank):
+                                    combos[str(mode)].append(combis)
+                                    continue
                     elif int(rank) > int(self.game.last_five_rank): 
                         for combo in self.combos['5'][rank]:
                                 combos[str(mode)].append(combo)
@@ -258,9 +261,8 @@ class Player(object):
                     print("You just started a new mode!")
                     for combo in self.combos['5'][rank]:
                         for card in combo:
-                            if last < card:
-                                combos[str(mode)].append(combo)
-                                break
+                            combos[str(mode)].append(combo)
+                            break
             for combo in combos[str(mode)]:
                 for card in combo:
                     if card not in playable:

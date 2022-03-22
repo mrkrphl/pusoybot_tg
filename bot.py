@@ -14,7 +14,7 @@ import simple_commands #okay
 from actions import do_play_card
 from config import MIN_PLAYERS
 from errors import (NoGameInChatError, LobbyClosedError, AlreadyJoinedError,
-                    NotEnoughPlayersError, DeckEmptyError)
+                    NotEnoughPlayersError)
 from results import (add_gameinfo,
                      add_no_game, add_not_started, add_pass,
                      add_card, add_choose_mode)
@@ -179,76 +179,6 @@ def leave_game(bot, update):
                            name=display_name(user)),
                        reply_to_message_id=update.message.message_id)
 
-
-def kick_player(bot, update):
-    """Handler for the /kick command"""
-
-    if update.message.chat.type == 'private':
-        help_handler(bot, update)
-        return
-
-    chat = update.message.chat
-    user = update.message.from_user
-
-    try:
-        game = gm.chatid_games[chat.id][-1]
-
-    except (KeyError, IndexError):
-            send_async(bot, chat.id,
-                   text=("No game is running at the moment. "
-                          "Create a new game with /new"),
-                   reply_to_message_id=update.message.message_id)
-            return
-
-    if not game.started:
-        send_async(bot, chat.id,
-                   text=("The game is not started yet. "
-                          "Join the game with /join and start the game with /start"),
-                   reply_to_message_id=update.message.message_id)
-        return
-
-    if user_is_creator_or_admin(user, game, bot, chat):
-
-        if update.message.reply_to_message:
-            kicked = update.message.reply_to_message.from_user
-
-            try:
-                gm.leave_game(kicked, chat)
-
-            except NoGameInChatError:
-                send_async(bot, chat.id, text=("Player {name} is not found in the current game.".format(name=display_name(kicked))),
-                                reply_to_message_id=update.message.message_id)
-                return
-
-            except NotEnoughPlayersError:
-                gm.end_game(chat, user)
-                send_async(bot, chat.id,
-                                text=("{0} was kicked by {1}".format(display_name(kicked), display_name(user))))
-                send_async(bot, chat.id, text=("Game ended!"))
-                return
-
-            send_async(bot, chat.id,
-                            text=("{0} was kicked by {1}".format(display_name(kicked), display_name(user))))
-
-        else:
-            send_async(bot, chat.id,
-                text=("Please reply to the person you want to kick and type /kick again."),
-                reply_to_message_id=update.message.message_id)
-            return
-
-        send_async(bot, chat.id,
-                   text=("Okay. Next Player: {name}",
-                           ).format(
-                       name=display_name(game.current_player.user)),
-                   reply_to_message_id=update.message.message_id)
-
-    else:
-        send_async(bot, chat.id,
-                  text=("Only the game creator ({name}) and admin can do that.")
-                  .format(name=game.starter.first_name),
-                  reply_to_message_id=update.message.message_id)
-
-
 def select_game(bot, update):
     """Handler for callback queries to select the current game"""
 
@@ -344,7 +274,6 @@ def start_game(bot, update, args, job_queue):
                                 text=first_message,
                                 reply_markup=InlineKeyboardMarkup(choice),
                                 timeout=TIMEOUT)
-
             move_first()
 
     elif len(args) and args[0] == 'select':
@@ -403,6 +332,7 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
     results = list()   
     try:
         user = update.inline_query.from_user
+        query = update.inline_query.query
         user_id = user.id
         players = gm.userid_players[user_id]
         player = gm.userid_current[user_id]
@@ -410,6 +340,8 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
     except KeyError:
         add_no_game(results)
     else:
+
+        
         # The game has not started.
         # The creator may change the game mode, other users just get a "game has not started" message.
         if not game.started:
@@ -420,18 +352,30 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
 
         elif user_id == game.current_player.user.id:
             playable = player.playable_cards()
-            if(not game.mode):
+            if (query == "Show Hand"):
+                print("OHH")
+                added_ids = list()  # Duplicates are not allowed
+                for card in sorted(player.cards):
+                    add_card(game, card, results,
+                            can_play=(card in playable[0] and
+                                            str(card) not in added_ids))
+                    added_ids.append(str(card))
+            elif(query == "Choose Mode"):
                 add_choose_mode(results, game.current_player, playable)
-                add_pass(results, game)
-            elif player.countmode == int(game.mode):
-                add_pass(results, game)
-            added_ids = list()  # Duplicates are not allowed
-            for card in sorted(player.cards):
-                add_card(game, card, results,
-                        can_play=(card in playable[0] and
-                                        str(card) not in added_ids))
-                added_ids.append(str(card))
-            add_gameinfo(game, results)
+            else:
+                if(not game.mode):
+                    print("YES")
+                    add_choose_mode(results, game.current_player, playable)
+                    add_pass(results, game)
+                elif player.countmode == int(game.mode):
+                    add_pass(results, game)
+                added_ids = list()  # Duplicates are not allowed
+                for card in sorted(player.cards):
+                    add_card(game, card, results,
+                            can_play=(card in playable[0] and
+                                            str(card) not in added_ids))
+                    added_ids.append(str(card))
+                add_gameinfo(game, results)
 
         elif user_id != game.current_player.user.id or not game.started:
             for card in sorted(player.cards):
@@ -502,7 +446,7 @@ def process_result(bot, update, job_queue):
             game.last_five_rank = None
     else:
         if(game.mode == None):
-            choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+            choice = [[InlineKeyboardButton(text=("Choose Mode"), switch_inline_query_current_chat= "Choose Mode")]]
             send_async(bot, chat.id, text=("Game mode not set! Please choose how many cards you are going to play."),
                             reply_markup = InlineKeyboardMarkup(choice))
             return
@@ -519,7 +463,7 @@ def process_result(bot, update, job_queue):
         if len(game.current_combo) > 0:    
             combo += "Combo so far:" + str(game.current_combo) + '\n'
         if type(game.last_high) is c.Card:
-            lc = "Last Highest Card: " + str(game.last_card) + "\n"
+            lc = "Last Highest Card: " + str(game.last_high) + "\n"
         if game.mode == '5':
             if(game.last_five_rank == '0'): 
                 gr = "Last Rank of Five Card: Straight" 
@@ -532,14 +476,33 @@ def process_result(bot, update, job_queue):
             elif(game.last_five_rank == '4'): 
                 gr = "Last Rank of Five Card: Straight Flush"
             gr = gr + "\n"
-                
+
+
         nextplayer_message = (
             ("Next player: {name}" + combo + lc + gr)
             .format(name=display_name(game.current_player.user)))
+            
         choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
         send_async(bot, chat.id,
                         text=nextplayer_message,
                         reply_markup=InlineKeyboardMarkup(choice))
+
+def hug(bot, update):
+    chat = update.message.chat
+    send_async(bot, chat.id, "Aw, thanks. Hug u too. lol")
+
+def read_message(bot, update):
+    sticker = update.message.sticker
+    user = update.message.from_user
+    chat = update.message.chat
+    player = gm.userid_current[user.id]
+    game = player.game
+
+    if(game_is_running(game)):
+        if(c.STICKERS_PACK[sticker.file_id] in player.cards):
+            print("OK")
+        else:
+            bot.delete_message(chat.id, update.message.id)
 
 
 
@@ -553,6 +516,8 @@ dispatcher.add_handler(CommandHandler('join', join_game))
 dispatcher.add_handler(CommandHandler('leave', leave_game))
 dispatcher.add_handler(CommandHandler('rules', rules))
 dispatcher.add_handler(CommandHandler('close', close_game))
+dispatcher.add_handler(CommandHandler('hug', hug))
+dispatcher.add_handler(MessageHandler(Filters.sticker, read_message))
 simple_commands.register()
 settings.register()
 dispatcher.add_handler(MessageHandler(Filters.status_update, status_update))

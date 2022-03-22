@@ -25,6 +25,7 @@ class Game(object):
     open = OPEN_LOBBY
     mode = None
     current_combo = []
+    prev_player = None
 
     def __init__(self, chat):
         self.chat = chat
@@ -57,16 +58,52 @@ class Game(object):
         self.mode = None
         self.starter = None
         
-    def check_last_high(self, cur_com):
+    def check_last_high(self, cur_com, rank):
         high = cur_com[0]
-        for card in cur_com:
-            if high < card:
-                high = card
-        return high
+    
+        if rank == '2' or rank == '3':
+            count = 0
+            other = None
+            print(cur_com)
+            for i in range(len(cur_com)):
+                print("HOOOOOYYYY")
+                print(high)
+                print(cur_com[i])
+                print("\n")
+                if high.value == cur_com[i].value:
+                    if high < cur_com[i]:
+                        high = cur_com[i]
+                    count+=1
+                else: 
+                    if other:
+                        if other < cur_com[i]:
+                            other = cur_com[i]
+                    else:
+                        other = cur_com[i]
+            
+            print("HIGH ETO sA GAME")
+            if rank == '2' and count == 3:
+                print(high)
+                return high
+            elif rank == '2' and count == 2:
+                high = other
+            elif rank == '3' and count == 1:
+                high = other
+            elif rank == '3' and count == 4:
+                print(high)
+                return high
+        else:
+            for card in cur_com:
+                if high < card:
+                    high = card
+        print("Other wins")
+        print(high)
+        return high ##MALII PAG NAKACOMBO!
 
     def turn(self):
         """Marks the turn as over and change the current player"""
         self.logger.debug("Next Player")
+        self.prev_player = self.current_player
         self.current_player = self.current_player.next
         self.current_player.turn_started = datetime.now()
 
@@ -118,6 +155,7 @@ class Game(object):
 
         player.countmode -= 1
         if len(player.to_remove) > 0:
+            
             print(len(player.to_remove))
             if self.mode == '5':
                 for removing in player.to_remove:
@@ -132,7 +170,7 @@ class Game(object):
         if(player.countmode == 0):
             if self.mode == '5':
                 self.last_five_rank = self.rank_check(self.current_combo)
-                self.last_high = self.check_last_high(self.current_combo)
+                self.last_high = self.check_last_high(self.current_combo, self.last_five_rank)
                 print("Last Rank of Combo: " + str(self.last_five_rank))
                 print("Highest card form Last Combo: " + str(self.last_high))
             self.current_combo.clear()
