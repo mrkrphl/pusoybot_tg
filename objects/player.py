@@ -5,7 +5,7 @@ from statistics import mode
 from errors import DeckEmptyError
 from gamethings.game import SINGLE
 from objects.card import Card
-from objects.combos import check_combo
+from objects.combos import check_combo, check_trio
 
 
 class Player(object):
@@ -100,29 +100,33 @@ class Player(object):
         self.cards = sorted(self.cards)
 
     def look_for_combos(self):
-        for card in self.cards:
-            combos = check_combo(card=card, cards=self.cards)
+        sorted_cards = sorted(self.cards)
+        for card in sorted_cards:
+            combos = check_combo(card=card, cards=sorted_cards)
             for combo in combos.keys():
                 if(combo != '5'):
-                    self.combos[combo].append(combos[combo])
+                    for bination in combos[combo]:
+                        if bination not in self.combos[combo]:
+                            self.combos[combo].append(bination)
                 else:
                     for k in combos[combo].keys():
                         for deal in combos[combo][k]:
                             self.combos[combo][k].append(deal)
         if(len(self.combos['2']) > 0 and len(self.combos['3']) > 0):
-            print("LOOKING FOR FULL HOUSE")
             for pair in self.combos['2']:    
                 for trio in self.combos['3']:
-                    if pair[0] not in trio:
-                        self.combos['5']['2'].append(pair + trio)
+                    if len(pair) > 0 and len(trio) > 0:
+                        if pair[0] not in trio and pair[1] not in trio:
+                            self.combos['5']['2'].append(pair + trio)
+        
         #four-of-a-kind plus singit
         if(len(self.combos['4']) > 0):
-            print('LOOKING FOR QUAD')
             for quads in self.combos['4']:
                 if len(quads) > 0:
                     for singles in self.combos['1']:
-                            if singles[0] not in quads:
-                                self.combos['5']['3'].append(quads + singles)
+                        if singles[0] not in quads:
+                            self.combos['5']['3'].append(quads + singles)
+        print(self.combos)
         
 
     def playable_cards(self):
@@ -131,7 +135,6 @@ class Player(object):
         combos = {'1':[], '2':[], '3':[], '5':[]}
         if self.game.mode == None:    
             if self.first_player():
-                print("FIRST MOVE")
                 lowest = Card('c','3')
                 if(lowest in self.cards):
                     playable.append(lowest)
@@ -156,7 +159,6 @@ class Player(object):
                     return playable, combos
         else:
             if self.first_player():
-                print("FIRST MOVE")
                 lowest = Card('c','3')
                 if(lowest in self.cards):
                     playable.append(lowest)
@@ -188,10 +190,8 @@ class Player(object):
         last = self.game.last_card
         mode = self.game.mode
         if(self.countmode != 0 and self.countmode < int(self.game.mode)): #magbababa pa
-            print("COMPLETING COMBO")
             last = self.game.last_card
             if mode != '5':
-                print("not 5")
                 for combo in self.combos[str(mode)]:
                     if last in combo and len(combo) == self.countmode+1:
                         to_remove_list = {'MR':mode, 'Index':self.combos[mode].index(combo), 'Card': last}
@@ -204,8 +204,10 @@ class Player(object):
                             playable.append(card)
                 return playable, combos
             else:
-                print("mode 5")
+
                 for rank in self.combos['5'].keys():
+                    print(self.combos['5'][rank])
+                    print("done")
                     for combo in self.combos['5'][rank]:
                         if last in combo and len(combo) == self.countmode+1:
                             print("Possible combos from dropped card: " + str(combo)) 
@@ -217,15 +219,22 @@ class Player(object):
                             elif rank == self.game.last_five_rank:
                                 print("Equal Rank")
                                 high = self.game.last_high
-                                for card in combo:
-                                    if rank != '2' or rank != '3':
-                                        if high < card:
-                                            to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
-                                            combos[str(mode)].append([card for card in combo if card != last])
-                                            self.to_remove.append(to_remove_list)
-                                            break
+                                if len(combo) > 2:
+                                    print("HERE")
+                                    card = self.game.check_last_high(combo, rank)
+                                    print(card)
+                                    if high < card:
+                                        to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
+                                        combos[str(mode)].append([card for card in combo if card != last])
+                                        self.to_remove.append(to_remove_list)
                                     else:
-                                        
+                                        print("MEH")
+                                else:
+                                    card = combo[0]
+                                    print(card)
+                                    to_remove_list = {'MR':rank, 'Index':self.combos['5'][rank].index(combo), 'Card': last}
+                                    combos[str(mode)].append([card for card in combo if card != last])
+                                    self.to_remove.append(to_remove_list)                  
                 for combo in combos[str(mode)]:
                     for card in combo:
                         if card not in playable:

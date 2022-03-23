@@ -1,24 +1,40 @@
+def check_trio(cards):
+    sorted_cards = sorted(cards)
+    if sorted_cards[0].value == sorted_cards[1].value == sorted[2].value:
+        return [sorted_cards[0], sorted_cards[1], sorted_cards[2]]
+    elif sorted_cards[2].value == sorted_cards[3].value == sorted[4].value:
+        return [sorted_cards[2], sorted_cards[3], sorted_cards[4]]
+
+def check_quad(cards):
+    return
+
 def check_combo(card, cards): #function to get all possible combos listed in a dictionary of lists 
-    combos = {'1':[card], '4': [], '5':{'0':[], '1':[], '2':[], '3':[], '4':[]}}
-    fours = []
+    combos = {'1':[[card]], '2':[], '3':[], '4':[], '5':{'0':[], '1':[], '2':[], '3':[], '4':[]}}
+    
     sorted_cards = sorted(cards)
     #up to three-of-a-kind
     index = sorted_cards.index(card)
     num = len(sorted_cards)
+    focus = [card]
     for i in range(1,4):
-        if i != 3:
-            if index+i >= num:
-                break
+        if index+i >= num:
+            break
+        else:
             if sorted_cards[index+i].value == card.value:
-                combos[str(i+1)] = [card for card in combos[str(i)]]
-                combos[str(i+1)].append(sorted_cards[index+i])
-        else: #quads
-            if index+i >= num:
-                break
-            if sorted_cards[index+i].value == card.value:
-                fours = [card for card in combos['3']]
-                fours.append(sorted_cards[index+i])
-            combos['4'] =  fours
+                focus.append(sorted_cards[index+i])
+    print("FOCUS")
+    print(focus)
+    if len(focus) >= 2:
+        for i in range(len(focus)-1): #pair
+            for j in range(i+1, len(focus)):
+                combos['2'].append([focus[i], focus[j]])
+    if len(focus) >= 3:
+        for i in range(len(focus)-2): #trio
+            for j in range(i+1, len(focus) - 1):
+                for k in range(j+1, len(focus)):
+                    combos['3'].append([focus[i], focus[j], focus[k]])
+    if len(focus) == 4:
+        combos['4'].append(focus)
 
     #Straight and straight flush
     for i in range(index+1, num):

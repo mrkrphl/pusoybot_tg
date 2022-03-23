@@ -18,17 +18,13 @@ class GameManager(object):
         """
         Create a new game in this chat
         """
-        chat_id = chat.id
-        self.logger.debug("Creating new game in chat " + str(chat_id))
+        
+        self.logger.debug("Creating new game in chat " + str(chat.id))
         game = Game(chat)
-        if chat_id not in self.chatid_games:
-            self.chatid_games[chat_id] = list()
-        # remove old games if there are no players 
-        for g in list(self.chatid_games[chat_id]):
-            if not g.players:
-                self.chatid_games[chat_id].remove(g)
-
-        self.chatid_games[chat_id].append(game)
+        if chat.id not in self.chatid_games:
+            self.chatid_games[chat.id] = list()
+        
+        self.chatid_games[chat.id].append(game)
         return game
 
     def join_game(self, user, chat):
@@ -40,6 +36,7 @@ class GameManager(object):
             raise NoGameInChatError()
         if not game.open:
             raise LobbyClosedError()
+
         if user.id not in self.userid_players:
             self.userid_players[user.id] = list() #empy list user id players
 
@@ -61,8 +58,6 @@ class GameManager(object):
 
         players.append(player) #if userid ay may iba pang games na player siya dito nililist
         self.userid_current[user.id] = player #current game ng userid na player siya
-        print(self.userid_players)
-        print(self.userid_current)
 
     def leave_game(self, user, chat):
         """ Remove a player from its current game """

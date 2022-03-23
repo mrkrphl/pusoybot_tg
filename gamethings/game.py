@@ -19,7 +19,6 @@ class Game(object):
     current_player = None
     started = False
     players_won = 0
-    starter = None
     job = None
     owner = ADMIN_LIST
     open = OPEN_LOBBY
@@ -56,20 +55,17 @@ class Game(object):
         self.deck._fill__()
         self.started = True
         self.mode = None
-        self.starter = None
         
     def check_last_high(self, cur_com, rank):
-        high = cur_com[0]
+        high = cur_com[-1]
+        print(cur_com)
+        print(high)
     
-        if rank == '2' or rank == '3':
+        if (rank == '2' or rank == '3') and len(cur_com) == 5:
+            print("PASOK")
             count = 0
             other = None
-            print(cur_com)
             for i in range(len(cur_com)):
-                print("HOOOOOYYYY")
-                print(high)
-                print(cur_com[i])
-                print("\n")
                 if high.value == cur_com[i].value:
                     if high < cur_com[i]:
                         high = cur_com[i]
@@ -80,8 +76,6 @@ class Game(object):
                             other = cur_com[i]
                     else:
                         other = cur_com[i]
-            
-            print("HIGH ETO sA GAME")
             if rank == '2' and count == 3:
                 print(high)
                 return high
@@ -96,7 +90,6 @@ class Game(object):
             for card in cur_com:
                 if high < card:
                     high = card
-        print("Other wins")
         print(high)
         return high ##MALII PAG NAKACOMBO!
 
@@ -113,16 +106,24 @@ class Game(object):
             combos = check_combo(card=card, cards=cur_combo)
             for combo in combos.keys():
                 if(combo != '5'):
-                    rank_c[combo].append(combos[combo])
+                    for bination in combos[combo]:
+                        if bination not in rank_c[combo]:
+                            rank_c[combo].append(bination)
                 else:
                     for k in combos[combo].keys():
                         for deal in combos[combo][k]:
                             rank_c[combo][k].append(deal)
+        print("CHECLK THIS")
+        print(rank_c)
         if(len(rank_c['2']) > 0 and len(rank_c['3']) > 0):
             for pair in rank_c['2']:    
                 for trio in rank_c['3']:
-                    if pair[0] not in trio:
-                        rank_c['5']['2'].append(pair + trio)
+                    print("FULL HOUSE RANK CHECK!!!")
+                    print(pair)
+                    print(trio)
+                    if len(pair) > 0 and len(trio) > 0:
+                        if pair[0] not in trio and pair[1] not in trio:
+                            rank_c['5']['2'].append(pair + trio)
         #four-of-a-kind plus singit
         if(len(rank_c['4']) > 0):
             for quads in rank_c['4']:

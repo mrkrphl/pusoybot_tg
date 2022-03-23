@@ -136,7 +136,6 @@ def join_game(bot, update):
                    text=("Joined the game"),
                    reply_to_message_id=update.message.message_id)
 
-
 def leave_game(bot, update):
     """Handler for the /leave command"""
     chat = update.message.chat
@@ -179,44 +178,6 @@ def leave_game(bot, update):
                            name=display_name(user)),
                        reply_to_message_id=update.message.message_id)
 
-def select_game(bot, update):
-    """Handler for callback queries to select the current game"""
-
-    chat_id = int(update.callback_query.data)
-    user_id = update.callback_query.from_user.id
-    players = gm.userid_players[user_id]
-    for player in players:
-        if player.game.chat.id == chat_id:
-            gm.userid_current[user_id] = player
-            break
-    else:
-        send_async(bot,
-                   update.callback_query.message.chat_id,
-                   text=("Game not found."))
-        return
-
-    @run_async
-    def selected(bot):
-        back = [[InlineKeyboardButton(text=("Back to last group"),
-                                      switch_inline_query='')]]
-        bot.answerCallbackQuery(update.callback_query.id,
-                                text=("Please switch to the group you selected!"),
-                                show_alert=False,
-                                timeout=TIMEOUT)
-
-        bot.editMessageText(chat_id=update.callback_query.message.chat_id,
-                            message_id=update.callback_query.message.message_id,
-                            text=("Selected group: {group}\n"
-                                   "<b>Make sure that you switch to the correct "
-                                   "group!</b>").format(
-                                group=gm.userid_current[user_id].game.chat.title),
-                            reply_markup=InlineKeyboardMarkup(back),
-                            parse_mode=ParseMode.HTML,
-                            timeout=TIMEOUT)
-
-    selected(bot)
-
-
 def status_update(bot, update):
     """Remove player from game if user leaves the group"""
     chat = update.message.chat
@@ -238,19 +199,18 @@ def status_update(bot, update):
                                              )
                        .format(name=display_name(user)))
 
-
 def start_game(bot, update, args, job_queue):
     """Handler for the /start command"""
     if update.message.chat.type != 'private':
         chat = update.message.chat
         try:
             game = gm.chatid_games[chat.id][-1]
-            
         except (KeyError, IndexError):
             send_async(bot, chat.id,
                        text=("There is no game running in this chat. Create "
                               "a new one with /new"))
             return
+
         if game.started:
             send_async(bot, chat.id, text=("The game has already started"))
         elif len(game.players) < MIN_PLAYERS:
@@ -264,7 +224,6 @@ def start_game(bot, update, args, job_queue):
                 player.look_for_combos()
                 if('c_3' in player.cards):
                     game.current_player = player
-                    game.starter = game.current_player
             choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
             first_message = (
                 ("First player: {name}\n").format(name=display_name(game.current_player.user)))
@@ -275,25 +234,6 @@ def start_game(bot, update, args, job_queue):
                                 reply_markup=InlineKeyboardMarkup(choice),
                                 timeout=TIMEOUT)
             move_first()
-
-    elif len(args) and args[0] == 'select':
-        players = gm.userid_players[update.message.from_user.id]
-
-        groups = list()
-        for player in players:
-            title = player.game.chat.title
-
-            if player is gm.userid_current[update.message.from_user.id]:
-                title = '- %s -' % player.game.chat.title
-
-            groups.append(
-                [InlineKeyboardButton(text=title,
-                                      callback_data=str(player.game.chat.id))]
-            )
-
-        send_async(bot, update.message.chat_id,
-                   text=('Please select the group you want to play in.'),
-                   reply_markup=InlineKeyboardMarkup(groups))
 
     else:
         help_handler(bot, update)
@@ -320,7 +260,7 @@ def close_game(bot, update):
     else:
         send_async(bot, chat.id,
                    text=("Only the game creator ({name}) and admin can do that.")
-                   .format(name=game.starter.first_name),
+                   .format(name=game.current_player.first_name),
                    reply_to_message_id=update.message.message_id)
         return
 
@@ -334,14 +274,11 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
         user = update.inline_query.from_user
         query = update.inline_query.query
         user_id = user.id
-        players = gm.userid_players[user_id]
         player = gm.userid_current[user_id]
         game = player.game
     except KeyError:
         add_no_game(results)
     else:
-
-        
         # The game has not started.
         # The creator may change the game mode, other users just get a "game has not started" message.
         if not game.started:
@@ -508,7 +445,6 @@ def read_message(bot, update):
 
 dispatcher.add_handler(InlineQueryHandler(reply_to_query))
 dispatcher.add_handler(ChosenInlineResultHandler(process_result, pass_job_queue=True))
-dispatcher.add_handler(CallbackQueryHandler(select_game))
 dispatcher.add_handler(CommandHandler('start', start_game, pass_args=True, pass_job_queue=True))
 dispatcher.add_handler(CommandHandler('new', new_game))
 dispatcher.add_handler(CommandHandler('kill', kill_game))
