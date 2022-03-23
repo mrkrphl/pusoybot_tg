@@ -290,7 +290,6 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
         elif user_id == game.current_player.user.id:
             playable = player.playable_cards()
             if (query == "Show Hand"):
-                print("OHH")
                 added_ids = list()  # Duplicates are not allowed
                 for card in sorted(player.cards):
                     add_card(game, card, results,
@@ -298,10 +297,15 @@ def reply_to_query(bot, update): #mag popop-up to choose sticker
                                             str(card) not in added_ids))
                     added_ids.append(str(card))
             elif(query == "Choose Mode"):
+                print(player.countmode)
+                print(game.mode)
+                print(game.mode == None)
+                if not (game.mode == None) and player.countmode == int(game.mode):
+                    game.mode = None
+                    playable = player.playable_cards()
                 add_choose_mode(results, game.current_player, playable)
             else:
                 if(not game.mode):
-                    print("YES")
                     add_choose_mode(results, game.current_player, playable)
                     add_pass(results, game)
                 elif player.countmode == int(game.mode):
@@ -356,7 +360,7 @@ def process_result(bot, update, job_queue):
         mode = result_id[5:]
         game.set_mode(mode)
         logger.info("Gamemode changed to {mode}".format(mode = mode))
-        choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')]]
+        choice = [[InlineKeyboardButton(text=("Make your choice!"), switch_inline_query_current_chat='')], [InlineKeyboardButton(text=("Repick Game Mode"), switch_inline_query_current_chat='Choose Mode')]]
         send_async(bot, chat.id, text=("Gamemode changed to {mode}! You can now drop {mode} cards as a combo consecutively!".format(mode = mode)),
                         reply_markup = InlineKeyboardMarkup(choice))
         return
@@ -413,7 +417,6 @@ def process_result(bot, update, job_queue):
             elif(game.last_five_rank == '4'): 
                 gr = "Last Rank of Five Card: Straight Flush"
             gr = gr + "\n"
-
 
         nextplayer_message = (
             ("Next player: {name}" + combo + lc + gr)

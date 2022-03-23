@@ -174,6 +174,9 @@ class Game(object):
                 self.last_high = self.check_last_high(self.current_combo, self.last_five_rank)
                 print("Last Rank of Combo: " + str(self.last_five_rank))
                 print("Highest card form Last Combo: " + str(self.last_high))
+            else:
+                self.last_high = self.check_last_high(self.current_combo, 0)
+                print("Highest card form Last Combo: " + str(self.last_high))
             self.current_combo.clear()
             player.countmode = int(self.mode)
             for player in self.players:

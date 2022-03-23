@@ -245,9 +245,14 @@ class Player(object):
         #eto ibang player na sasagot
         print("NEXT PLAYER START A COMBO")
         if mode != '5':
+            check = last
+            if (type(self.game.last_high) is Card): 
+                check = self.game.last_high
             for combo in self.combos[str(mode)]: 
                 for card in combo:
-                    if last < card:
+                    print("CHECK")
+                    print(check)
+                    if check < card:
                         combos[str(mode)].append(combo)
                         continue
             for combo in combos[str(mode)]:
