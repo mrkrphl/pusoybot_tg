@@ -376,7 +376,7 @@ def process_result(bot, update, job_queue):
             if len(game.current_combo) > 0:
                 send_async(bot, chat.id,
                 text=("Can't pass when a combo has started!")
-                )
+            )
                 return
             game.mode = None
         game.turn()
