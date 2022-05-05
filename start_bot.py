@@ -1,6 +1,27 @@
 import os
-def start_bot(updater):
-    updater.start_webhook(listen="0.0.0.0",
-                          port=int(int(os.environ.get('PORT', 5000))),
-                          url_path='5084650563:AAGoOgqgmT9gNDSKt_LC5VmiITXPhrWUpsg')
-    updater.bot.setWebhook('https://gentle-retreat-84776.herokuapp.com/' + '5084650563:AAGoOgqgmT9gNDSKt_LC5VmiITXPhrWUpsg')
+import logging
+import sys
+mode = os.getenv("MODE")
+TOKEN = os.getenv("TOKEN")
+
+# Enabling logging
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger()
+
+
+if mode == "dev":
+    def run(updater):
+        updater.start_polling()
+elif mode == "prod":
+    def run(updater):
+        PORT = int(os.environ.get("PORT", "8443"))
+        HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+        # Code from https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks#heroku
+        updater.start_webhook(listen="0.0.0.0",
+                              port=PORT,
+                              url_path=TOKEN)
+        updater.bot.set_webhook("https://{}.herokuapp.com/{}".format(HEROKU_APP_NAME, TOKEN))
+else:
+    logger.error("No MODE specified!")
+    sys.exit(1)
