@@ -445,10 +445,11 @@ def read_message(bot, update):
             bot.delete_message(chat.id, update.message.id)
 
 def printStickers(bot, update):
-    chat = update.message.from_user
+    chat = update.message.chat
     for card in c.STICKERS.values():
-        stck = bot.sendSticker(chat.id, card)
-        print(stck.file_id)
+        print(card)
+        stck = bot.send_sticker(chat_id = chat.id, sticker = card)
+        print(type(stck.sticker))
 
 
 dispatcher.add_handler(InlineQueryHandler(reply_to_query))
@@ -466,6 +467,7 @@ simple_commands.register()
 settings.register()
 dispatcher.add_handler(MessageHandler(Filters.status_update, status_update))
 dispatcher.add_error_handler(error)
+dispatcher.add_handler(CommandHandler('stickers', printStickers))
 
 start_bot(updater)
 updater.idle()
