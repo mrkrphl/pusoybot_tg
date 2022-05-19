@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-mode = os.getenv("MODE")
+mode = "dev"
 TOKEN = os.getenv("TOKEN")
 
 # Enabling logging
@@ -11,10 +11,10 @@ logger = logging.getLogger()
 
 
 if mode == "dev":
-    def run(updater):
+    def start_bot(updater):
         updater.start_polling()
 elif mode == "prod":
-    def run(updater):
+    def start_bot(updater):
         PORT = int(os.environ.get("PORT", "8443"))
         HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
         # Code from https://github.com/python-telegram-bot/python-telegram-bot/wiki/Webhooks#heroku
