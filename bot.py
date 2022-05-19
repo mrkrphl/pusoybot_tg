@@ -446,7 +446,9 @@ def read_message(bot, update):
 
 def printStickers(bot, update):
     chat = update.message.from_user
-    bot.sendSticker(chat.id, )
+    for card in c.STICKERS.values():
+        stck = bot.sendSticker(chat.id, card)
+        print(stck.file_id)
 
 
 dispatcher.add_handler(InlineQueryHandler(reply_to_query))
