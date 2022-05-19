@@ -446,7 +446,7 @@ def read_message(bot, update):
 
 def printStickers(bot, update):
     chat = update.message.chat
-    for i in range(50,len(list(c.STICKER_LOWSAT_GRAB))):
+    for i in range(40,len(list(c.STICKER_LOWSAT_GRAB))):
         stck = bot.send_sticker(chat_id = chat.id, sticker = list(c.STICKER_LOWSAT_GRAB.values())[i])
         print('\'', end = '')
         print(list(c.STICKER_LOWSAT_GRAB.keys())[i], end = '')
@@ -455,6 +455,7 @@ def printStickers(bot, update):
         print('\'', end = '')
         print(stck.sticker.file_id, end = '')
         print('\',')
+    
 
 
 dispatcher.add_handler(InlineQueryHandler(reply_to_query))
