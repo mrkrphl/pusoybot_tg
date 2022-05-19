@@ -444,6 +444,9 @@ def read_message(bot, update):
         else:
             bot.delete_message(chat.id, update.message.id)
 
+def printStickers(bot, update):
+    chat = update.message.from_user
+    bot.sendSticker(chat.id, )
 
 
 dispatcher.add_handler(InlineQueryHandler(reply_to_query))
