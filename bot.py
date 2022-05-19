@@ -446,7 +446,7 @@ def read_message(bot, update):
 
 def printStickers(bot, update):
     chat = update.message.chat
-    for i in range(23,26):
+    for i in range(1,26):
         stck = bot.send_sticker(chat_id = chat.id, sticker = list(c.STICKER_GRAB.values())[i])
         print(list(c.STICKER_GRAB.keys())[i], end = '')
         print(': ', end = '')
